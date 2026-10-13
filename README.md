@@ -2,8 +2,9 @@
 
 A cyberpunk-neon rice for [niri](https://github.com/YaLTeR/niri) on NixOS,
 managed with [home-manager](https://github.com/nix-community/home-manager).
-It runs daily on an Apple T2 MacBook, but nothing in here needs that hardware
-except `modules/power/quiet.nix` (see below).
+Only the hand-made parts are here: the compositor config, the bar, the
+terminal, the prompt, the editor theme and the Spotify popup. Package lists
+and generic desktop plumbing are left out.
 
 ![desktop: niri, waybar on top, the quickshell rail at the bottom](assets/desktop.webp)
 
@@ -18,20 +19,15 @@ middle is `spotify-mini`, spotify-player inside a `kitten panel` overlay
 | -------------- | -------------------------------------------------------------------- |
 | Compositor     | niri (`config/niri/config.kdl`, `modules/wm/niri.nix`)               |
 | Bar            | [quickshell](https://quickshell.org) bottom rail with app / media / system islands, launcher, notification daemon (`config/quickshell/bottom`, `modules/bar/quickshell-bottom.nix`) |
-| Bar (fallback) | waybar, adapted from [cebem1nt/dotfiles](https://github.com/cebem1nt/dotfiles) (`config/waybar`, `modules/bar/waybar.nix`) |
+| Bar (fallback) | waybar, adapted from [cebem1nt/dotfiles](https://github.com/cebem1nt/dotfiles) (`config/waybar`, `modules/bar/waybar.nix`, `scripts/waybar`) |
 | Terminal       | kitty with the built-in `cyberpunk` theme (`modules/terminal/kitty.nix`) |
 | Prompt         | starship, colours from kitty's cyberpunk mapped onto the [SilkCircuit](https://github.com/hyperb1iss/silkcircuit) layout with [tr3ss](https://github.com/tr3ss/starship-themes) ice separators (`modules/shell/zsh.nix`) |
 | Editor         | helix + nixd (`modules/editors/helix.nix`, `themes/helix/cyberpunk.toml`) |
-| TUIs           | zellij, yazi, btop, discordo, spotify-player, all on the same palette (`themes/`) |
-| Launcher       | fuzzel                                                               |
-| Lock / idle    | swaylock, swayidle                                                   |
-| OSD / power    | swayosd, wlogout, `quiet` mode                                       |
-| Notifications  | the quickshell bar is the daemon; mako kept as a styled fallback     |
-| Theming        | GTK / Qt dark, cursor (`modules/theming/`)                           |
+| Spotify        | spotify-player as a kitten-panel popup and as a floating visualiser window (`modules/terminal/spotify-player.nix`, `themes/spotify-player/cyberpunk.toml`) |
 
 ## Palette
 
-Every app is tuned to kitty's built-in **cyberpunk** theme:
+Every piece is tuned to kitty's built-in **cyberpunk** theme:
 
 | role       | hex       |
 | ---------- | --------- |
@@ -52,27 +48,17 @@ home.nix            # entry point — imports ./modules
 modules/
   default.nix       # imports every module below
   identity.nix      # CHANGE ME: username / home dir / stateVersion
-  xdg.nix, packages.nix, session.nix
   shell/zsh.nix     # zsh + starship prompt + zoxide
   editors/helix.nix
-  terminal/         # kitty, zellij, yazi, discordo, spotify-player
-  launcher/fuzzel.nix
-  screenshot/swappy.nix
+  terminal/         # kitty.nix, spotify-player.nix
   bar/              # quickshell-bottom.nix, waybar.nix
-  notifications/mako.nix
-  lock/             # swaylock, swayidle
-  clipboard/cliphist.nix
-  osd/swayosd.nix
-  power/            # wlogout, quiet (MacBook-specific, see below)
-  monitoring/       # btop, ripgrep
-  theming/          # gtk-qt, cursor
   wm/niri.nix       # sources config/niri/config.kdl
 config/
   niri/config.kdl
   quickshell/bottom/   # the bar: QML + services
   waybar/              # config.jsonc, modules.jsonc, style.css, colors/, context/
 scripts/waybar/        # helper scripts deployed to ~/.local/bin
-themes/                # btop, helix, discordo, spotify-player, zellij colour files
+themes/                # helix and spotify-player colour files
 ```
 
 Standalone files (QML, KDL, CSS, TOML) are referenced from the modules with
@@ -101,31 +87,26 @@ build time.
      config.common.default = "*";
    };
    services.pipewire = { enable = true; pulse.enable = true; };
-   services.power-profiles-daemon.enable = true;
    security.polkit.enable = true;
    programs.dconf.enable = true;
-   fonts.packages = with pkgs; [ nerd-fonts.jetbrains-mono departure-mono fragment-mono terminus_font ];
+   fonts.packages = with pkgs; [ nerd-fonts.caskaydia-cove nerd-fonts.profont ];
    ```
 
-   `packages.nix` pulls in the whole `nerd-fonts` set for the user; the bar
-   uses *CaskaydiaCove Nerd Font Propo*, kitty uses *ProFont IIx Nerd Font Mono*.
+   The bar uses *CaskaydiaCove Nerd Font Propo*, kitty *ProFont IIx Nerd Font
+   Mono*.
 
-4. Drop a wallpaper at `~/Pictures/Wallpapers/` (the bar's wallpaper strip
+4. The niri config and the waybar modules spawn a few tools that are not part
+   of this tree: `awww` (wallpaper), `swaylock`, `swayosd-client`, `wlogout`,
+   `nm-applet`, `playerctl`, `nemo`, and waybar's power module calls
+   a `power-cycle` script from the private config. Add them to your packages
+   or trim the binds.
+
+5. Drop a wallpaper at `~/Pictures/Wallpapers/` (the bar's wallpaper strip
    reads that folder, `awww` paints it).
 
 Pick modules à la carte if you don't want the whole thing: each file under
-`modules/` is self-contained apart from the shared `config/` and `themes/`
-files it sources.
-
-### `quiet` mode
-
-`modules/power/quiet.nix` pins the fans and caps the CPU on an Apple T2
-MacBook (applesmc fan nodes, Intel RAPL, intel_pstate, t2fanrd). It is wired
-into the waybar power module as a right-click, which calls `sudo -n`, so the
-system config needs a NOPASSWD sudo rule for the `quiet-root` helper in the
-user's home-manager profile. On other hardware drop it from
-`modules/default.nix` and the `power-cycle` module from
-`config/waybar/modules.jsonc`.
+`modules/` is self-contained apart from the `config/` and `themes/` files it
+sources.
 
 ## Credits
 
