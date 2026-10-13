@@ -8,9 +8,11 @@ except `modules/power/quiet.nix` (see below).
 ![desktop: niri, waybar on top, the quickshell rail at the bottom](assets/desktop.webp)
 
 The bottom rail unfolded: launcher with pinned apps, media card with cava
-visualiser, system island with night-light, clock and notifications.
+visualiser, system island with night-light, clock and notifications. In the
+middle is `spotify-mini`, spotify-player inside a `kitten panel` overlay
+(Mod+M toggles it; `modules/terminal/spotify-player.nix`).
 
-![the quickshell bottom bar unfolded](assets/bar-open.webp)
+![the quickshell bottom bar unfolded, with the spotify-player panel](assets/bar-open.webp)
 
 | Piece          | What                                                                 |
 | -------------- | -------------------------------------------------------------------- |
