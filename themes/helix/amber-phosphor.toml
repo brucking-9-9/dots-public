@@ -1,0 +1,102 @@
+# Amber Phosphor — helix colour theme
+
+"ui.background"             = { bg = "bg" }
+"ui.background.preview"     = { bg = "darker_bg" }
+"ui.text"                   = { fg = "fg" }
+"ui.text.focus"             = { fg = "bright_amber" }
+"ui.cursor"                 = { fg = "bg", bg = "amber" }
+"ui.cursor.insert"          = { fg = "bg", bg = "dim_amber" }
+"ui.cursor.select"          = { fg = "bg", bg = "warm_amber" }
+"ui.cursor.match"           = { fg = "bg", bg = "bright_amber" }
+"ui.selection"              = { bg = "dark_bg" }
+"ui.selection.primary"      = { bg = "dark_bg" }
+"ui.linenr"                 = { fg = "border" }
+"ui.linenr.selected"        = { fg = "amber" }
+"ui.statusline"             = { fg = "amber", bg = "darker_bg" }
+"ui.statusline.inactive"    = { fg = "dim_amber", bg = "darker_bg" }
+"ui.statusline.normal"      = { fg = "bg", bg = "amber", modifiers = ["bold"] }
+"ui.statusline.insert"      = { fg = "bg", bg = "warm_amber", modifiers = ["bold"] }
+"ui.statusline.select"      = { fg = "bg", bg = "bright_amber", modifiers = ["bold"] }
+"ui.menu"                   = { fg = "fg", bg = "darker_bg" }
+"ui.menu.selected"          = { fg = "bg", bg = "amber" }
+"ui.menu.scroll"            = { fg = "dim_amber" }
+"ui.popup"                  = { bg = "darker_bg" }
+"ui.popup.info"             = { fg = "fg", bg = "darker_bg" }
+"ui.window"                 = { fg = "border" }
+"ui.help"                   = { fg = "fg", bg = "darker_bg" }
+"ui.highlight"              = { bg = "dark_bg" }
+"ui.gutter"                 = { bg = "bg" }
+"ui.virtual.ruler"          = { bg = "darker_bg" }
+"ui.virtual.inlay-hint"     = { fg = "dim_amber", bg = "bg" }
+"ui.virtual.whitespace"     = { fg = "border" }
+"ui.virtual.jump-label"     = { fg = "bright_amber", modifiers = ["bold"] }
+
+"comment"                   = { fg = "dim_amber", modifiers = ["italic"] }
+"constant"                  = { fg = "bright_amber" }
+"constant.numeric"          = { fg = "bright_amber" }
+"constant.character.escape" = { fg = "orange_red" }
+"string"                    = { fg = "warm_amber" }
+"string.regexp"             = { fg = "orange_red" }
+"keyword"                   = { fg = "amber", modifiers = ["bold"] }
+"keyword.control"           = { fg = "orange_red" }
+"keyword.directive"         = { fg = "amber" }
+"keyword.operator"          = { fg = "amber" }
+"keyword.function"          = { fg = "amber", modifiers = ["bold"] }
+"operator"                  = { fg = "fg" }
+"function"                  = { fg = "bright_amber" }
+"function.builtin"          = { fg = "bright_amber", modifiers = ["bold"] }
+"function.macro"            = { fg = "warm_amber" }
+"function.method"           = { fg = "warm_amber" }
+"type"                      = { fg = "amber" }
+"type.builtin"              = { fg = "amber", modifiers = ["bold"] }
+"variable"                  = { fg = "fg" }
+"variable.builtin"          = { fg = "amber" }
+"variable.parameter"        = { fg = "fg", modifiers = ["italic"] }
+"variable.other.member"     = { fg = "warm_amber" }
+"tag"                       = { fg = "amber" }
+"attribute"                 = { fg = "warm_amber" }
+"namespace"                 = { fg = "dim_amber" }
+"module"                    = { fg = "dim_amber" }
+"punctuation"               = { fg = "dim_amber" }
+"punctuation.delimiter"     = { fg = "dim_amber" }
+"punctuation.bracket"       = { fg = "amber" }
+"label"                     = { fg = "orange_red" }
+"special"                   = { fg = "bright_amber" }
+
+"markup.heading"            = { fg = "bright_amber", modifiers = ["bold"] }
+"markup.raw"                = { fg = "warm_amber", bg = "darker_bg" }
+"markup.bold"               = { modifiers = ["bold"] }
+"markup.italic"             = { modifiers = ["italic"] }
+"markup.strikethrough"      = { modifiers = ["crossed_out"] }
+"markup.link.url"           = { fg = "orange_red", modifiers = ["underlined"] }
+"markup.link.text"          = { fg = "amber" }
+"markup.quote"              = { fg = "dim_amber", modifiers = ["italic"] }
+"markup.list"               = { fg = "amber" }
+
+"diff.plus"                 = { fg = "warm_amber" }
+"diff.minus"                = { fg = "orange_red" }
+"diff.delta"                = { fg = "bright_amber" }
+"diff.plus.gutter"          = { fg = "warm_amber" }
+"diff.minus.gutter"         = { fg = "orange_red" }
+
+"diagnostic.error"          = { fg = "error" }
+"diagnostic.warning"        = { fg = "warning" }
+"diagnostic.info"           = { fg = "info" }
+"diagnostic.hint"           = { fg = "hint" }
+
+[palette]
+bg           = "#0c0800"
+darker_bg    = "#080500"
+dark_bg      = "#3d2000"
+border       = "#aa5b00"
+fg           = "#ff8c00"
+amber        = "#ff8c00"
+bright_amber = "#ffcc00"
+warm_amber   = "#ffb347"
+dim_amber    = "#e48500"
+dark_amber   = "#a87e00"
+orange_red   = "#ff4400"
+error        = "#ff4400"
+warning      = "#ffcc00"
+info         = "#ff8c00"
+hint         = "#cc7700"

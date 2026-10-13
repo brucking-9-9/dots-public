@@ -1,0 +1,20 @@
+#!/bin/bash
+
+if [[ -v NIRI_SOCKET ]] && [ "$(id -u)" -ne 0 ]; then # We better not do this as root
+    # We're on niri. Niri has no blur/shadow toggles like Hyprland did,
+    # so the only compositor-side thing worth doing here is dropping
+    # the internal panel's refresh rate to save battery.
+    ~/.local/bin/refreshrate 60 eDP-1
+fi
+
+# re-run as root, next commands require sudo
+if [ "$(id -u)" -ne 0 ]; then
+    pkexec "$0"
+    exit
+fi
+
+# Enables pcie powersupersave ASPM policy
+echo powersupersave > /sys/module/pcie_aspm/parameters/policy
+
+# Apply best options of powertop
+powertop --auto-tune

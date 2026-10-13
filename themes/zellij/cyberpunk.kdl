@@ -1,0 +1,17 @@
+// Cyberpunk — palette matched to kitty's built-in "cyberpunk" theme
+// (jandre953/kitty-cyberpunk). Neon pink foreground on near-black bg.
+themes {
+    cyberpunk {
+        fg      "#FF0055"
+        bg      "#120B10"
+        black   "#000000"
+        red     "#FF0055"
+        green   "#009550"
+        yellow  "#F4EF00"
+        blue    "#6766B3"
+        magenta "#D57BFF"
+        cyan    "#0DCDCD"
+        white   "#EEFFFF"
+        orange  "#FFFC58"
+    }
+}

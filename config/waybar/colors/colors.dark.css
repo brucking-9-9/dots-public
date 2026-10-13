@@ -1,0 +1,13 @@
+/* Cyberpunk-neon — matched to the kitty 'cyberpunk' theme */
+
+@define-color module-bg     rgba(18, 11, 16, 0.9);
+@define-color tooltip-bg    @module-bg;
+@define-color inactive      #6d5a78;
+@define-color fg            #eeffff;
+@define-color workspace-fg  @fg;
+@define-color highlight     #563466;
+
+@define-color red           #ff0055;
+@define-color blue          #00ffc8;
+@define-color yellow        #f4ef00;
+@define-color green         #00ff9c;

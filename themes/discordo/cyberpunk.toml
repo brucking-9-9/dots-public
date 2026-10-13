@@ -1,0 +1,94 @@
+# Cyberpunk-neon — discordo theme
+#
+# Palette matched to kitty's built-in "cyberpunk" theme (same source as the
+# btop / zellij / helix ports in this directory's siblings):
+#   bg #120B10 · cyan #00FFC8 (primary accent) · pink #FF0055 (urgent)
+#   purple #D57BFF · yellow #F4EF00 · green #00FF9C · blue #76C1FF
+#   selection #563466 · dim #6D5A78 · text #EEFFFF
+#
+# discordo merges this over its embedded defaults, so only the theme (and
+# the few behaviour keys below) are overridden here; keybinds stay upstream.
+# Style table shape: { foreground, background, attributes, underline, underline_color }
+# Colors are tcell names or #RRGGBB.
+
+editor = "default"   # $EDITOR (hx)
+
+[markdown]
+enabled = true
+# Fenced-code-block theme (chroma). "vim" is the closest neon-on-dark set.
+theme = "vim"
+
+[date_separator]
+character = "─"
+
+# ── Chrome ────────────────────────────────────────────────────────────────
+[theme.title]
+alignment    = "left"
+normal_style = { foreground = "#6D5A78" }
+active_style = { foreground = "#00FFC8", attributes = "bold" }
+
+[theme.footer]
+alignment    = "left"
+normal_style = { foreground = "#6D5A78" }
+active_style = { foreground = "#00FFC8", attributes = "bold" }
+
+[theme.border]
+enabled      = true
+padding      = [0, 0, 1, 1]
+normal_style = { foreground = "#563466" }
+active_style = { foreground = "#00FFC8" }
+normal_set   = "round"
+active_set   = "round"
+
+[theme.scroll_bar]
+visibility  = "auto"
+glyph_set   = "unicode"
+track_style = { foreground = "#563466" }
+thumb_style = { foreground = "#D57BFF" }
+
+[theme.dialog]
+style            = { foreground = "#EEFFFF" }
+background_style = { foreground = "#6D5A78" }
+
+[theme.help]
+short_key_style  = { foreground = "#D57BFF" }
+short_desc_style = { foreground = "#6D5A78" }
+full_key_style   = { foreground = "#D57BFF", attributes = "bold" }
+full_desc_style  = { foreground = "#EEFFFF" }
+
+# ── Sidebar ───────────────────────────────────────────────────────────────
+[theme.guilds_tree]
+auto_expand_folders = true
+graphics            = true
+graphics_color      = "#563466"
+
+online_style  = { foreground = "#00FF9C" }
+idle_style    = { foreground = "#F4EF00" }
+dnd_style     = { foreground = "#FF0055" }
+offline_style = { foreground = "#6D5A78" }
+
+# ── Messages ──────────────────────────────────────────────────────────────
+[theme.messages_list]
+reply_indicator     = "›"
+forwarded_indicator = "‹"
+
+mention_style    = { foreground = "#FF0055", attributes = "bold" }
+emoji_style      = { foreground = "#00FF9C" }
+url_style        = { foreground = "#76C1FF", underline = "solid" }
+attachment_style = { foreground = "#F4EF00" }
+
+reaction_style     = { foreground = "#6D5A78" }
+own_reaction_style = { foreground = "#00FFC8", attributes = "bold" }
+
+message_style          = {}
+selected_message_style = { background = "#563466", foreground = "#EEFFFF" }
+
+[theme.messages_list.embeds]
+provider_style    = { foreground = "#6D5A78", attributes = "italic" }
+author_style      = { foreground = "#D57BFF", attributes = "italic" }
+title_style       = { foreground = "#00FFC8", attributes = "bold" }
+description_style = { foreground = "#EEFFFF" }
+field_name_style  = { foreground = "#D57BFF", attributes = "bold" }
+field_value_style = {}
+footer_style      = { foreground = "#6D5A78", attributes = "italic" }
+url_style         = { foreground = "#76C1FF", underline = "solid" }

@@ -1,0 +1,32 @@
+#!/bin/bash
+
+# Niri version.
+# Sets the given refresh rate for the eDP-1 output (the T2 MacBook's
+# built-in panel). If you ever add an external monitor and want this
+# script to target it too, change OUTPUT below or pass it as $2.
+
+OUTPUT="${2:-eDP-1}"
+
+if [[ "$#" -lt 1 ]]; then
+    echo "Usage: $0 <refresh rate> [output]"
+    exit 1
+fi
+
+WANT_MHZ=$(( $1 * 1000 ))
+
+# Keep the currently active resolution, just look for the closest
+# available mode at that resolution with the requested refresh rate.
+MODE=$(niri msg --json outputs | jq -r --arg o "$OUTPUT" --argjson want "$WANT_MHZ" '
+    .[$o] as $out
+    | ($out.modes[$out.current_mode]) as $cur
+    | ($out.modes | map(select(.width == $cur.width and .height == $cur.height)))
+    | (min_by(((.refresh_rate - $want) | if . < 0 then -. else . end)))
+    | "\(.width)x\(.height)@\((.refresh_rate / 1000))"
+' 2>/dev/null)
+
+if [[ -z "$MODE" || "$MODE" == "null" ]]; then
+    notify-send --app-name "$0" "refreshrate" "Could not find a matching mode for $OUTPUT"
+    exit 1
+fi
+
+niri msg output "$OUTPUT" mode "$MODE"

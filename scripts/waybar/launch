@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Run-or-calc prompt (fuzzel). Type a shell command to run it, or a math
+# expression — optionally prefixed with '=' — to calculate. The result is
+# shown as a notification and copied to the clipboard.
+input=$(fuzzel --dmenu --prompt='» ' --lines=0 </dev/null) || exit 0
+input="${input#"${input%%[![:space:]]*}"}"   # trim leading whitespace
+[ -z "$input" ] && exit 0
+
+if [[ "$input" == "="* ]] || [[ "$input" =~ ^[0-9.[:space:]()]+[-+*/^%] ]]; then
+    expr="${input#=}"
+    result=$(qalc -t "$expr" 2>/dev/null)
+    if [ -n "$result" ]; then
+        printf '%s' "$result" | wl-copy
+        notify-send -a calc "= $result" "$expr  ·  copied"
+    else
+        notify-send -a calc "Couldn't evaluate" "$expr"
+    fi
+else
+    setsid -f sh -c "$input" >/dev/null 2>&1
+fi

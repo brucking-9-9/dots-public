@@ -1,0 +1,35 @@
+# Cyberpunk-neon — spotify-player theme
+#
+# Palette matched to kitty's built-in "cyberpunk" theme (same source as the
+# btop / zellij / helix / discordo ports in this directory's siblings):
+#   bg #120B10 · cyan #00FFC8 (primary accent) · pink #FF0055 (urgent)
+#   purple #D57BFF · yellow #F4EF00 · green #00FF9C · blue #76C1FF
+#   selection #563466 · dim #6D5A78 · text #EEFFFF
+#
+# No [themes.palette] block: base colours come from the terminal (kitty is
+# already on the cyberpunk theme), only component styles are overridden.
+# Selected via `theme = "cyberpunk"` in app.toml (terminal/spotify-player.nix).
+
+[[themes]]
+name = "cyberpunk"
+
+[themes.component_style]
+block_title = { fg = "#D57BFF", modifiers = ["Bold"] }
+border = { fg = "#563466" }
+playback_status = { fg = "#00FFC8", modifiers = ["Bold"] }
+playback_track = { fg = "#00FFC8", modifiers = ["Bold"] }
+playback_artists = { fg = "#D57BFF", modifiers = ["Bold"] }
+playback_album = { fg = "#F4EF00" }
+playback_genres = { fg = "#6D5A78", modifiers = ["Italic"] }
+playback_metadata = { fg = "#6D5A78" }
+playback_progress_bar = { bg = "#563466", fg = "#FF0055" }
+playback_progress_bar_unfilled = { bg = "#563466" }
+current_playing = { fg = "#00FF9C", modifiers = ["Bold"] }
+page_desc = { fg = "#00FFC8", modifiers = ["Bold"] }
+playlist_desc = { fg = "#6D5A78", modifiers = ["Dim"] }
+table_header = { fg = "#76C1FF" }
+selection = { bg = "#563466", fg = "#EEFFFF", modifiers = ["Bold"] }
+lyrics_played = { fg = "#6D5A78" }
+lyrics_playing = { fg = "#00FFC8", modifiers = ["Bold"] }
+# Visualizer bars: quiet → cyan, medium → purple, loud → neon pink
+visualization = { low = "#00FFC8", mid = "#D57BFF", high = "#FF0055" }
