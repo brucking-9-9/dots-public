@@ -5,6 +5,13 @@ managed with [home-manager](https://github.com/nix-community/home-manager).
 It runs daily on an Apple T2 MacBook, but nothing in here needs that hardware
 except `modules/power/quiet.nix` (see below).
 
+![desktop: niri, waybar on top, the quickshell rail at the bottom](assets/desktop.webp)
+
+The bottom rail unfolded: launcher with pinned apps, media card with cava
+visualiser, system island with night-light, clock and notifications.
+
+![the quickshell bottom bar unfolded](assets/bar-open.webp)
+
 | Piece          | What                                                                 |
 | -------------- | -------------------------------------------------------------------- |
 | Compositor     | niri (`config/niri/config.kdl`, `modules/wm/niri.nix`)               |
