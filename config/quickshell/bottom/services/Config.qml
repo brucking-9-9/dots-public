@@ -16,6 +16,7 @@ Singleton {
     readonly property string wallpaperDir: adapter.wallpaperDir
     readonly property QtObject schedule: adapter.schedule
     readonly property string chime: adapter.chime
+    readonly property var dynamicDarkPhases: adapter.dynamicDarkPhases   // phases showing a Dynamic pair's Dark member
 
     FileView {
         path: root.home + "/.config/quickshell-bottom/config.json"
@@ -28,6 +29,7 @@ Singleton {
             property list<string> defaultPins: ["obsidian", "steam", "firefox", "kitty"]
             property string wallpaperDir: root.home + "/Pictures/Wallpapers"
             property string chime: "/run/current-system/sw/share/sounds/freedesktop/stereo/message-new-instant.oga"
+            property list<string> dynamicDarkPhases: ["dusk", "night"]
             property JsonObject schedule: JsonObject {
                 property string day: "07:30"
                 property string dusk: "18:30"

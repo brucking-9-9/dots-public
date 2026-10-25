@@ -77,12 +77,13 @@ Item {
                 Column {
                     id: rowTxt
                     anchors.left: parent.left
-                    anchors.right: x.left
+                    anchors.right: rowEnd.left
                     anchors.rightMargin: 8
                     spacing: 1
                     Text {
                         width: parent.width
                         text: (row.e.app ? row.e.app + " · " : "") + row.e.summary
+                        textFormat: Text.PlainText
                         color: row.isLive ? (row.e.urgency === 2 ? Theme.yellow : Theme.fg) : (rh.hovered ? Theme.fg : Theme.dim2)
                         font.family: Theme.font
                         font.pixelSize: Theme.fontSize
@@ -116,8 +117,8 @@ Item {
                         }
                     }
                 }
-                Text {
-                    id: x
+                Text {   // [x] on an open row, the time on a past one
+                    id: rowEnd
                     anchors.right: parent.right
                     anchors.top: parent.top
                     text: row.isLive ? "[x]" : list.clock(row.e.time)

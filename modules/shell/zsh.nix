@@ -4,8 +4,45 @@
     enable = true;
     dotDir = "${config.xdg.configHome}/zsh"; # new HM default: keep zsh dotfiles under ~/.config/zsh
 
+    # Tab completion (compinit) + fish-style ghost-text suggestions from
+    # history; → or End accepts. Suggestion colour = kitty cyberpunk color4.
+    enableCompletion = true;
+    autosuggestion = {
+      enable = true;
+      highlight = "fg=#6766B3";
+      strategy = [
+        "history"
+        "completion"
+      ];
+    };
+    history = {
+      size = 50000;
+      save = 50000;
+      ignoreDups = true;
+      share = true;
+    };
+
+    completionInit = ''
+      autoload -U compinit && compinit
+      zmodload zsh/complist
+      zstyle ':completion:*' menu select                         # arrow-key menu on Tab
+      zstyle ':completion:*' matcher-list 'm:{a-z}={A-Za-z}'     # case-insensitive
+      zstyle ':completion:*' list-colors "''${(s.:.)LS_COLORS}"
+      _comp_options+=(globdots)                                  # complete dotfiles
+    '';
+
     initContent = ''
       command -v pfetch >/dev/null && pfetch
+
+      # kiosk-agent ["task"]: Claude's kiosk specialist (agents/kiosk.md) on
+      # mbp13, interactive in tmux session "kiosk" (re-running attaches; detach
+      # with C-b d and it keeps working). Interactive on purpose: you approve
+      # the nixos-rebuild switch it deploys with.
+      kiosk-agent() {
+        local cmd="cd ~/nixos && tmux new -A -s kiosk claude --agent kiosk"
+        (( $# )) && cmd+=" ''${(qq)*}"
+        ssh -t mbp13 "$cmd"
+      }
     '';
 
     sessionVariables = {
@@ -18,12 +55,26 @@
       switch = "sudo -H nixos-rebuild switch --flake /etc/nixos";
       update = "sudo -H nix flake update --flake /etc/nixos";
       build = "sudo -H nixos-rebuild build --flake /etc/nixos";
+      # mbp13's btop, short + wide: cpu (with a GPU line) over net | procs,
+      # 24 rows min, 26 to show all 8 cores. Config lives unmanaged on mbp13
+      # at ~/.config/btop/thin.conf; LD_LIBRARY_PATH lets btop find NVML.
+      mbtop = "ssh -t mbp13 LD_LIBRARY_PATH=/run/opengl-driver/lib btop -c .config/btop/thin.conf";
       edit = "sudo hx /etc/nixos";
       ls = "ls --color=auto";
       ll = "ls -lh --color=auto";
       la = "ls -lah --color=auto";
       gs = "git status";
       tux = "tuxedo";
+    };
+  };
+
+  # `ssh mbp13` → the 2014 MacBook Pro (NixOS 25.11, user master, key-only), over Tailscale.
+  programs.ssh = {
+    enable = true;
+    enableDefaultConfig = false;
+    settings.mbp13 = {
+      HostName = "<mbp13-tailnet-ip>"; # Tailscale IP (stable; LAN was 192.168.1.136)
+      User = "master";
     };
   };
 

@@ -19,6 +19,18 @@ Singleton {
     readonly property int minK: 2500
     readonly property int maxK: 6500
 
+    // 0 = full day … 1 = deepest night, for a temperature
+    function depth(k) { return Math.min(1, Math.max(0, (maxK - k) / (maxK - minK))); }
+    // moon-phase glyph: full disc at full day, waning to the empty ring at the
+    // deepest night. In this font E3E3 is the solid disc, E3D5 the ring.
+    // (nerd-font weather glyphs by codepoint: literals get mangled in edits)
+    readonly property var phases: [0xE3D5, 0xE38E, 0xE38F, 0xE390, 0xE391, 0xE392, 0xE393, 0xE394,
+        0xE395, 0xE396, 0xE397, 0xE398, 0xE399, 0xE39A, 0xE3E3]
+    function phaseGlyph(t) { return String.fromCodePoint(phases[Math.round((1 - t) * (phases.length - 1))]); }
+    readonly property bool nightPreset: mode !== "auto" && temperature === Config.schedule.nightK
+    // ☾ preset ↔ back to the schedule
+    function toggleNight() { nightPreset ? auto() : setManual(Config.schedule.nightK); }
+
     // live temperature stream
     Process {
         id: watch

@@ -62,6 +62,12 @@ Singleton {
         }
     }
 
+    // run a command through niri so it inherits the session environment
+    // (login PATH, sudo rules) rather than the quickshell unit's
+    function spawn(cmd) {
+        Quickshell.execDetached(["niri", "msg", "action", "spawn", "--"].concat(cmd));
+    }
+
     function windowsOf(appId) {
         return windows.filter(w => sameApp(w.app_id, appId));
     }

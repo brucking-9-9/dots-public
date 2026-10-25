@@ -13,6 +13,7 @@ Item {
     property bool selected: false
     property bool mini: false          // no number / dot, used in the minimized island
     property bool shown: true          // false → folds to zero width
+    property bool disabled: false      // greyed, ignores hover and clicks
     signal clicked()
     signal rightClicked()
 
@@ -32,7 +33,7 @@ Item {
         anchors.fill: parent
         color: "transparent"
         border.width: 1
-        border.color: chip.hovered || chip.selected ? Theme.cyan : "transparent"
+        border.color: !chip.disabled && (chip.hovered || chip.selected) ? Theme.cyan : "transparent"
     }
 
     Row {
@@ -49,13 +50,14 @@ Item {
         NeonText {
             anchors.verticalCenter: parent.verticalCenter
             text: chip.label
-            color: chip.hovered || chip.selected ? Theme.cyan
+            color: chip.disabled ? Theme.sel
+                 : chip.hovered || chip.selected ? Theme.cyan
                  : chip.current ? Theme.yellow
                  : chip.running ? Theme.fg
                  : chip.dim ? Theme.dim : Theme.dim2
             font.family: Theme.font
             font.pixelSize: Theme.fontSize
-            glow: chip.hovered || chip.selected ? 0.9 : chip.current ? 0.6 : 0
+            glow: chip.disabled ? 0 : chip.hovered || chip.selected ? 0.9 : chip.current ? 0.6 : 0
         }
         Item {
             visible: chip.running && !chip.mini
@@ -66,12 +68,14 @@ Item {
         }
     }
 
-    HoverHandler { id: hover }
+    HoverHandler { id: hover; enabled: !chip.disabled }
     TapHandler {
+        enabled: !chip.disabled
         acceptedButtons: Qt.LeftButton
         onTapped: chip.clicked()
     }
     TapHandler {
+        enabled: !chip.disabled
         acceptedButtons: Qt.RightButton
         onTapped: chip.rightClicked()
     }

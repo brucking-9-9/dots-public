@@ -85,7 +85,7 @@ PanelWindow {
             cutTL: true; cutTR: true; cutBL: false; cutBR: false
             cut: 10
             soft: true
-            fill: Qt.rgba(18 / 255, 11 / 255, 16 / 255, 0.96)
+            fill: Qt.alpha(Theme.bg, 0.96)
             edge: win.tone
             edgeWidth: 1.4
             glow: win.shownState === "waiting" ? 1.2 + win.pulse * 2.4 : 2.2
@@ -97,7 +97,7 @@ PanelWindow {
             spacing: 10
             NeonText {
                 anchors.verticalCenter: parent.verticalCenter
-                text: "󰈷"
+                text: "\u{f0237}"   // nf-md-fingerprint (escape: literals get mangled in edits)
                 color: win.tone
                 font.family: Theme.font
                 font.pixelSize: Theme.fontSize + 8

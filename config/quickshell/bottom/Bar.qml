@@ -13,7 +13,7 @@ import "services"
 // It still reserves its room (and slides aside from an expanded tab) so
 // nothing reflows when it appears.
 //
-//   ▬▬ ▬ kitty hx firefox    ▁▃▅▇ artist — title 󰕾 42% 󰍬 80%    4500K │ 23:02 │ ✉2
+//   ▬▬ ▬ kitty hx firefox    ▁▃▅▇ artist — title [vol] 42% [mic] 80%    4500K │ 23:02 │ ✉2
 //   > _ ▬▬ ▬ 1:kitty● 2:hx 3:firefox●       ⬡ │ ☼⌒☾ 6500K night·auto │ 23:02:17 │ ✉ 2
 //
 // Only `mask` decides what is clickable: the islands, the media zone, and
@@ -35,8 +35,9 @@ PanelWindow {
     // Top normally (hidden under fullscreen windows, like the rest of the desktop);
     // Overlay only while summoned so the launcher shows over a fullscreen game.
     WlrLayershell.layer: summoned ? WlrLayer.Overlay : WlrLayer.Top
-    // Never steal typing on hover: only Mod+B / Mod+D / a click on the prompt asks for keys.
-    WlrLayershell.keyboardFocus: wantKeyboard || summoned ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    // Never steal typing on hover: only Mod+B / Mod+D / a click on the prompt asks for keys,
+    // plus an open popup (strip, ✉ list, chip menu) so Esc can close it.
+    WlrLayershell.keyboardFocus: wantKeyboard || summoned || popupKeys ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
 
     // ── state ────────────────────────────────────────────────────────────
     property bool appsOpen: false        // apps island wants to be expanded
@@ -54,21 +55,23 @@ PanelWindow {
     property bool menuOpen: false
     property bool stripOpen: false
     property bool notifOpen: false
+    property bool ctlOpen: false         // night light + fans panel
     property bool cardShown: false
     property string menuKind: ""
     property var menuData: null
 
     readonly property bool anyOpen: appsOpen || mediaOpen || sysOpen
     readonly property int pendingCount: Notif.pending
-    readonly property bool fullMask: stripOpen || menuOpen || notifOpen
+    readonly property bool fullMask: stripOpen || menuOpen || notifOpen || ctlOpen
+    readonly property bool popupKeys: fullMask   // click-opened popups take the keyboard for Esc (root handles it)
 
     readonly property bool appsHover: apps.hovered || menu.hovered || results.hovered
     readonly property bool mediaHover: media.visible && !summoned && (mediaHot.hovered || media.hovered || card.hovered)
-    readonly property bool sysHover: sys.hovered || strip.hovered || notifs.hovered
+    readonly property bool sysHover: sys.hovered || strip.hovered || notifs.hovered || ctl.hovered
 
     readonly property bool mediaPlaying: Media.player !== null && Media.player.isPlaying
     readonly property bool appsLock: allLocked || summoned || wantKeyboard || launcher.hasText || menuOpen
-    readonly property bool sysLock: allLocked || stripOpen || notifOpen
+    readonly property bool sysLock: allLocked || stripOpen || notifOpen || ctlOpen
 
 
     // hover in → open; hover out → close after a grace period unless locked
@@ -111,6 +114,7 @@ PanelWindow {
         menuOpen = false;
         wantKeyboard = false;
         launcher.clear();
+        root.forceActiveFocus();   // keys go back to root's Esc handler, not the hidden prompt
     }
     function closeMedia() {
         cardShown = false;
@@ -124,6 +128,7 @@ PanelWindow {
         if (stripOpen) Wallpapers.restore();
         stripOpen = false;
         notifOpen = false;
+        ctlOpen = false;
         sysOpen = false;
     }
     function closeAll() {
@@ -163,6 +168,7 @@ PanelWindow {
             stripOpen = false;
         } else {
             notifOpen = false;
+            ctlOpen = false;
             sysOpen = true;
             stripOpen = true;
             Wallpapers.rescan();
@@ -172,14 +178,25 @@ PanelWindow {
         if (notifOpen) notifOpen = false;
         else {
             if (stripOpen) { Wallpapers.restore(); stripOpen = false; }
+            ctlOpen = false;
             sysOpen = true;
             notifOpen = true;
+        }
+    }
+    function toggleCtl() {
+        if (ctlOpen) ctlOpen = false;
+        else {
+            if (stripOpen) { Wallpapers.restore(); stripOpen = false; }
+            notifOpen = false;
+            sysOpen = true;
+            ctlOpen = true;
         }
     }
     function escapeKey() {
         if (menuOpen) menuOpen = false;
         else if (stripOpen) { Wallpapers.restore(); stripOpen = false; }
         else if (notifOpen) notifOpen = false;
+        else if (ctlOpen) ctlOpen = false;
         else closeAll();
     }
     function doMenu(op) {
@@ -204,17 +221,21 @@ PanelWindow {
         item: fullMask ? root : null
         regions: [
             Region { item: apps },
-            Region { item: bar.summoned ? null : sys }, Region { item: bar.summoned ? null : media },
+            Region { item: bar.summoned ? null : sys }, Region { item: media.visible && !bar.summoned ? media : null },
             Region { item: media.visible && !bar.summoned ? mediaHot : null },
             Region { item: cardHit }, Region { item: bar.menuOpen ? menu : null },
             Region { item: bar.resultsOpen ? results : null },
-            Region { item: bar.stripOpen ? strip : null }, Region { item: bar.notifOpen ? notifs : null }
+            Region { item: bar.stripOpen ? strip : null }, Region { item: bar.notifOpen ? notifs : null },
+            Region { item: bar.ctlOpen ? ctl : null }
         ]
     }
 
     Item {
         id: root
         anchors.fill: parent
+        // Esc with a popup open and the prompt unfocused (strip / ✉ opened by click)
+        focus: true
+        Keys.onEscapePressed: bar.escapeKey()
 
         // click on empty surface while a popup is up closes it
         TapHandler {
@@ -225,6 +246,7 @@ PanelWindow {
                 const inside = it => it.visible && p.x >= it.x && p.x <= it.x + it.width && p.y >= it.y && p.y <= it.y + it.height;
                 if (bar.menuOpen && !inside(menu)) bar.menuOpen = false;
                 if (bar.notifOpen && !inside(notifs) && !inside(sys)) bar.notifOpen = false;
+                if (bar.ctlOpen && !inside(ctl) && !inside(sys)) bar.ctlOpen = false;
                 if (bar.stripOpen && !inside(strip) && !inside(sys)) { Wallpapers.restore(); bar.stripOpen = false; }
             }
         }
@@ -300,7 +322,8 @@ PanelWindow {
         Island {
             id: sys
             expanded: bar.sysExpanded
-            expandedWidth: bar.sysExpanded ? implicitWidth : implicitWidth + Theme.sysUnfoldExtra
+            // predicted unfolded width: the fold's extras (+ row spacing), the clock's :SS and the " CAPS" tag while caps lock is on
+            expandedWidth: bar.sysExpanded ? implicitWidth : implicitWidth + sysFold.fullWidth + 12 + clock.fullWidth - clock.width + (Osd.caps ? 48 : 0)
             x: root.width - Theme.sideMargin - width
             y: root.height - height
             opacity: bar.summoned ? 0 : 1
@@ -311,6 +334,7 @@ PanelWindow {
                 spacing: 12
 
                 Fold {
+                    id: sysFold
                     open: bar.sysExpanded
                     anchors.verticalCenter: parent.verticalCenter
                     Row {
@@ -325,16 +349,69 @@ PanelWindow {
                             HoverHandler { id: wh }
                             TapHandler { onTapped: bar.toggleStrip() }
                         }
+                        NeonText {   // Dynamic pair on screen: force its Dark/Light member (lit = Dark); the next phase change resumes the schedule
+                            visible: Wallpapers.isDynamic(Wallpapers.current)
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: Wallpapers.wantDark ? "◑" : "◐"
+                            color: dh.hovered ? Theme.fg : Wallpapers.wantDark ? Theme.purple : Theme.dim2
+                            font.family: Theme.font
+                            font.pixelSize: 16
+                            glow: Wallpapers.wantDark || dh.hovered ? 0.8 : 0
+                            HoverHandler { id: dh }
+                            TapHandler { onTapped: Wallpapers.toggleDark() }
+                        }
+                        NeonText {   // nixos-rebuild switch: `nixos-switch` (quickshell-bottom.nix); sudo asks for Touch ID, then SwitchHud slides down from the top
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "\u{f1105}"
+                            color: sw.hovered ? Theme.fg : Theme.cyan
+                            font.family: Theme.font
+                            font.pixelSize: 16
+                            glow: sw.hovered ? 0.9 : 0.4
+                            HoverHandler { id: sw }
+                            TapHandler { onTapped: Switch.start() }
+                        }
+                        NeonText {   // night light + fans panel (ControlPanel)
+                            anchors.verticalCenter: parent.verticalCenter
+                            text: "\u{f062e}"
+                            color: bar.ctlOpen || th.hovered ? Theme.fg : Theme.purple
+                            font.family: Theme.font
+                            font.pixelSize: 16
+                            glow: bar.ctlOpen || th.hovered ? 0.9 : 0.4
+                            HoverHandler { id: th }
+                            TapHandler { onTapped: bar.toggleCtl() }
+                        }
                         Rectangle { width: 1; height: 22; color: Theme.sel; anchors.verticalCenter: parent.verticalCenter }
                     }
                 }
-                NightArc { mini: !bar.sysExpanded; anchors.verticalCenter: parent.verticalCenter }
+                // night light + fans stay condensed here; the full controls live in ControlPanel
+                FanControl { mini: true; anchors.verticalCenter: parent.verticalCenter }
+                NeonText {   // caps lock on (Osd watches the keyboard LEDs)
+                    visible: Osd.caps
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: String.fromCodePoint(0xF030E) + (bar.sysExpanded ? " CAPS" : "")
+                    color: Theme.orange
+                    font.family: Theme.font
+                    font.pixelSize: bar.sysExpanded ? 19 : 18
+                    font.bold: true
+                    glow: 0.7
+                }
+                NeonText {   // night light as its moon phase; click = ☾ preset ↔ schedule
+                    anchors.verticalCenter: parent.verticalCenter
+                    readonly property real t: Night.depth(Night.daemonOk ? Night.temperature : Night.maxK)
+                    text: Night.phaseGlyph(t)
+                    color: ngh.hovered ? Theme.fg : t < 0.15 ? Theme.yellow : Theme.orange
+                    font.family: Theme.font
+                    font.pixelSize: 16
+                    glow: 0.6
+                    HoverHandler { id: ngh }
+                    TapHandler { onTapped: Night.toggleNight() }
+                }
                 Rectangle { width: 1; height: bar.sysExpanded ? 22 : 14; color: Theme.sel; anchors.verticalCenter: parent.verticalCenter; Behavior on height { NumberAnimation { duration: Theme.unfoldMs } } }
-                Clock { mini: !bar.sysExpanded; anchors.verticalCenter: parent.verticalCenter }
+                Clock { id: clock; mini: !bar.sysExpanded; anchors.verticalCenter: parent.verticalCenter }
                 Rectangle { width: 1; height: bar.sysExpanded ? 22 : 14; color: Theme.sel; anchors.verticalCenter: parent.verticalCenter; Behavior on height { NumberAnimation { duration: Theme.unfoldMs } } }
                 NeonText {   // pending notifications; right-click = do-not-disturb, middle = mute chime
                     anchors.verticalCenter: parent.verticalCenter
-                    text: (Notif.dnd ? "\u{f009b}" : "✉") + (Notif.pending > 0 ? " " + Notif.pending : "") + (Notif.silent ? " \u{f075f}" : "")
+                    text: (Notif.dnd ? "\u{f009b}" : "\u{f039f}") + (Notif.pending > 0 ? " " + Notif.pending : "") + (Notif.silent ? " \u{f075f}" : "")
                     color: Notif.dnd ? Theme.dim : (Notif.pending > 0 ? Theme.pink : (nh.hovered ? Theme.fg : Theme.dim2))
                     font.family: Theme.font
                     font.pixelSize: Theme.fontSize + 1
@@ -400,6 +477,14 @@ PanelWindow {
             y: open ? sys.y - height - 10 : sys.y - height + 16
             Behavior on y { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
             onChosen: bar.stripOpen = false
+        }
+
+        ControlPanel {
+            id: ctl
+            open: bar.ctlOpen
+            x: Math.max(Theme.sideMargin, sys.x + sys.width - width)
+            y: open ? sys.y - height - 8 : sys.y - height + 6
+            Behavior on y { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
         }
 
         NotifList {

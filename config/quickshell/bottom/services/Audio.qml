@@ -28,12 +28,16 @@ Singleton {
 
     function pct(v) { return Math.round(v * 100) + "%"; }
 
-    // Wheel → volume delta. Mouse wheels report angleDelta (120 per notch);
-    // trackpads often report only pixelDelta, so handle both. One notch = 5 %.
-    function wheelStep(ev) {
+    // Wheel → notches, the one place every WheelHandler (TopModule, Launcher,
+    // MediaIsland) normalises events: mouse wheels report angleDelta (120 per
+    // notch); trackpads often report only pixelDelta, so fall back to it
+    // (40 px ≈ one notch). Either axis counts.
+    function wheelNotches(ev) {
         const a = ev.angleDelta.y !== 0 ? ev.angleDelta.y : ev.angleDelta.x;
-        if (a !== 0) return a / 120 * 0.05;
+        if (a !== 0) return a / 120;
         const p = ev.pixelDelta.y !== 0 ? ev.pixelDelta.y : ev.pixelDelta.x;
-        return p / 40 * 0.05;
+        return p / 40;
     }
+    // …→ volume delta: one notch = 5 %
+    function wheelStep(ev) { return wheelNotches(ev) * 0.05; }
 }

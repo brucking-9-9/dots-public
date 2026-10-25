@@ -75,6 +75,7 @@ Item {
                 Text {
                     width: parent.width
                     text: card.player ? card.player.trackTitle : ""
+                    textFormat: Text.PlainText
                     color: Theme.fg
                     font.family: Theme.font
                     font.pixelSize: Theme.fontSize + 1
@@ -86,6 +87,7 @@ Item {
                     text: card.player
                         ? card.player.trackArtist + (card.player.trackAlbum ? " · " + card.player.trackAlbum : "")
                         : ""
+                    textFormat: Text.PlainText
                     color: Theme.purple
                     font.family: Theme.font
                     font.pixelSize: Theme.fontSize - 1
@@ -98,9 +100,10 @@ Item {
         Canvas {
             id: scope
             width: parent.width
-            height: 26
+            height: 48
             readonly property real frac: card.player && card.player.length > 0
                 ? Math.min(1, card.player.position / card.player.length) : 0
+            property var zoneW: [1 / 3, 1 / 3, 1 / 3]   // smoothed section widths
 
             Connections {
                 target: Media
@@ -121,33 +124,65 @@ Item {
                 ctx.lineWidth = 1;
                 ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(w, mid); ctx.stroke();
 
-                const lv = Media.levels;
-                const energy = lv.length ? lv.reduce((a, b) => a + b, 0) / (lv.length * 7) : 0.25;
-                const amp = 3 + energy * (mid - 3);
+                // After Effects "Audio Spectrum" look: one flat line, frequency
+                // left to right (cava's 72 bars are log-spaced 50 Hz-10 kHz), a
+                // dense zigzag whose height is that frequency's level. Squaring
+                // the level keeps quiet bands flat so loud ones read as bursts.
+                // Bass | mids | treble sections get wider while they're loud.
+                const lv = Media.levels, n = lv.length;
+                const level = f => {   // bar value at fractional index f, 0..1
+                    const i = Math.floor(f), k = f - i;
+                    return (lv[i] * (1 - k) + lv[Math.min(n - 1, i + 1)] * k) / 100;
+                };
+                const zones = [
+                    // cava bars [a, b) (72 bars: 250 Hz ~ bar 22, 4 kHz ~ bar 60),
+                    // zigzag wavelength px, line width
+                    { a: 0,  b: 22, wl: 6,   lw: 1.8 },   // bass
+                    { a: 22, b: 60, wl: 4.5, lw: 1.4 },   // mids
+                    { a: 60, b: 72, wl: 3,   lw: 1.1 },   // treble
+                ];
+                // width follows loudness: weight = 1 + 2 * section energy, eased
+                const weights = zones.map(z => {
+                    if (!n) return 1;
+                    let s = 0;
+                    for (let i = z.a; i < Math.min(z.b, n); i++) s += lv[i];
+                    return 1 + 2 * s / ((Math.min(z.b, n) - z.a) * 100);
+                });
+                const total = weights.reduce((a, b) => a + b, 0);
+                zoneW = zoneW.map((v, i) => v + (weights[i] / total - v) * 0.25);
                 const headX = frac * w;
-                const pts = [];
-                for (let x = 0; x <= w; x += 2) {
-                    const i = lv.length ? Math.floor(x / w * lv.length) : 0;
-                    const local = lv.length ? lv[i] / 7 : 0.4;
-                    const y = mid + Math.sin(x / 9) * amp * (0.4 + 0.6 * local) * Math.sin(x / 37 + 1)
-                                  + Math.sin(x / 3.1) * 1.5 * local;
-                    pts.push([x, y]);
-                }
-                // played part: filled
+                let x0 = 0, phase = 0;
+                zones.forEach((z, zi) => {
+                    const zw = zoneW[zi] * w;
+                    const last = Math.min(z.b, n) - 1;
+                    z.pts = [];
+                    for (let dx = 0; dx <= zw; dx += 1) {
+                        const u = dx / zw;
+                        const e = n ? level(z.a + u * (last - z.a)) : 0.05;
+                        phase += 2 * Math.PI / z.wl;
+                        z.pts.push([x0 + dx, mid + Math.sin(phase) * e * e * (mid - 1)]);
+                    }
+                    x0 += zw;
+                });
+                // played part: filled under the wave
                 ctx.save();
                 ctx.beginPath(); ctx.rect(0, 0, headX, h); ctx.clip();
-                ctx.beginPath(); ctx.moveTo(0, mid);
-                for (const p of pts) ctx.lineTo(p[0], p[1]);
-                ctx.lineTo(w, mid); ctx.closePath();
                 ctx.fillStyle = Qt.rgba(0, 1, 0.78, 0.25);
-                ctx.fill();
+                ctx.beginPath(); ctx.moveTo(0, mid);
+                for (const z of zones) for (const p of z.pts) ctx.lineTo(p[0], p[1]);
+                ctx.lineTo(w, mid); ctx.closePath(); ctx.fill();
                 ctx.restore();
-                // trace
+                // traces
                 ctx.strokeStyle = Theme.cyan;
-                ctx.lineWidth = 1.5;
-                ctx.beginPath();
-                pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
-                ctx.stroke();
+                let prev = null;   // start each section where the last one ended
+                for (const z of zones) {
+                    ctx.lineWidth = z.lw;
+                    ctx.beginPath();
+                    if (prev) ctx.moveTo(prev[0], prev[1]);
+                    z.pts.forEach((p, i) => i || prev ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]));
+                    ctx.stroke();
+                    prev = z.pts[z.pts.length - 1];
+                }
                 // head
                 ctx.strokeStyle = Theme.pink;
                 ctx.lineWidth = 1.5;
@@ -185,18 +220,29 @@ Item {
                     Text {
                         required property string modelData
                         readonly property bool on: modelData === "shuffle" && card.player ? card.player.shuffle : false
+                        // greyed when the player can't do it (shuffle is unsupported on some; next/prev at the ends)
+                        readonly property bool can: {
+                            const p = card.player;
+                            if (!p) return false;
+                            switch (modelData) {
+                            case "prev":    return p.canGoPrevious;
+                            case "next":    return p.canGoNext;
+                            case "shuffle": return p.shuffleSupported;
+                            default:        return p.canTogglePlaying;
+                            }
+                        }
                         text: modelData === "prev" ? "[⏮]"
                             : modelData === "next" ? "[⏭]"
                             : modelData === "shuffle" ? "[⇄]"
                             : (card.player && card.player.isPlaying ? "[⏸]" : "[⏵]")
-                        color: on ? Theme.yellow : (bh.hovered ? Theme.fg : Theme.cyan)
+                        color: !can ? Theme.sel : on ? Theme.yellow : (bh.hovered ? Theme.fg : Theme.cyan)
                         font.family: Theme.font
                         font.pixelSize: Theme.fontSize - 1
                         HoverHandler { id: bh }
                         TapHandler {
                             onTapped: {
                                 const p = card.player;
-                                if (!p) return;
+                                if (!p || !can) return;
                                 if (modelData === "prev") p.previous();
                                 else if (modelData === "next") p.next();
                                 else if (modelData === "shuffle") p.shuffle = !p.shuffle;

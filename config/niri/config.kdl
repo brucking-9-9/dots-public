@@ -1,22 +1,19 @@
-spawn-at-startup "waybar"
-spawn-at-startup "awww-daemon"
+// The top bar is part of the quickshell shell (quickshell.service, see
+// bar/quickshell-bottom.nix) — waybar was retired in Oct 2026.
+// awww-daemon runs as the `awww` user service (bar/quickshell-bottom.nix):
+// Restart=always, and its ExecStartPost re-applies the remembered wallpaper.
 spawn-at-startup "@POLKIT_GNOME@/libexec/polkit-gnome-authentication-agent-1"
 spawn-at-startup "nm-applet"
 
-// awww remembers whichever image you last set, so this really only
-// matters once. Drop an image at the path below (or point it elsewhere)
-// — the "sleep" is a best-effort wait for the daemon socket above to be
-// ready; bump it if the wallpaper doesn't apply on boot. Comment this
-// line out entirely if you'd rather keep the plain background-color
-// from the output block below.
-// The bottom bar's wallpaper strip (home/modules/bar/quickshell-bottom.nix)
-// writes the chosen image to ~/.local/state/wallpaper/current; fall back to
-// the default png until it has been used once.
-spawn-sh-at-startup "sleep 0.5 && awww img \"$(cat ~/.local/state/wallpaper/current 2>/dev/null || echo ~/Pictures/Wallpapers/wallpaper.png)\" --transition-type wipe --transition-fps 60"
+// The bottom bar's wallpaper strip writes the chosen image to
+// ~/.local/state/wallpaper/current; the awww service's wallpaper-apply
+// shows it (falling back to ~/Pictures/Wallpapers/wallpaper.png).
 
 output "eDP-1" {
   //W 290mm H 180mm
-  background-color "#120b10"
+  // Shown behind the wallpaper layer (overview + between workspaces) if awww
+  // isn't up; the workspace background itself is transparent (layout block).
+  backdrop-color "#120b10"
   position x=0 y=0
 }
 
@@ -40,10 +37,13 @@ xwayland-satellite {
 // without fighting that.
 layout {
   gaps 10
+  // Transparent so the wallpaper in the backdrop shows through in the normal
+  // view too (otherwise it'd only appear in the overview).
+  background-color "transparent"
 
   // Bottom bar (home/modules/bar/quickshell-bottom.nix): its minimized
   // islands are 22 px tall and sit on the bottom edge, so reserve room for
-  // them below the windows and pull the windows up under waybar by most of
+  // them below the windows and pull the windows up under the top bar by most of
   // that (leaves a 2 px gap under the top bar instead of 10).
   struts {
     top -8
@@ -133,6 +133,25 @@ window-rule {
   default-window-height { fixed 252; }
 }
 
+// Follow-wallpaper accent (bar's ◐ chip): `wallpaper-accent` (quickshell-bottom.nix)
+// writes a focus-ring active-color here when the accent is on, a comment when
+// off; niri watches the file and live-reloads. Positional: must come after the
+// layout block above so it overrides it.
+include optional=true "~/.local/state/wallpaper/niri-accent.kdl"
+
+// Wallpaper in the overview backdrop: awww's background layer sits behind
+// the workspaces and stays put while they zoom/scroll, so the overview shows
+// the wallpaper instead of a flat backdrop-color.
+layer-rule {
+  match namespace=r#"^awww-daemon$"#
+  place-within-backdrop true
+}
+// same for a video wallpaper (mpvpaper, wallpaper-video.service)
+layer-rule {
+  match namespace=r#"^mpvpaper$"#
+  place-within-backdrop true
+}
+
 // Spotify mini player overlay (kitten panel, namespace spotify-mini)
 layer-rule {
   match namespace=r#"^spotify-mini$"#
@@ -167,11 +186,11 @@ binds {
   // Mod+B raises the whole HUD (apps + media + sys) with the prompt focused;
   // Esc or Mod+B again closes it.
   Mod+B       { spawn "qs" "ipc" "-c" "bottom" "call" "bar" "toggle"; }
-  // Mod+Shift+N toggles mako's do-not-disturb mode (popups hidden, ✉ still counts).
+  // Mod+Shift+N toggles the bar's do-not-disturb mode (popups hidden, ✉ still counts).
   Mod+Shift+N { spawn "qs" "ipc" "-c" "bottom" "call" "bar" "dnd"; }
   Mod+E       { spawn "nemo"; }
-  // -f forks to background; colour comes from programs.swaylock.settings
-  Super+Alt+L { spawn "swaylock" "-f"; }
+  // lockscreen = hyprlock wrapper from lock/hyprlock.nix (forks, never doubles up)
+  Super+Alt+L { spawn "lockscreen"; }
   // Power menu — lock / logout / suspend / reboot / shutdown
   Mod+Shift+Escape { spawn "wlogout"; }
 
@@ -181,29 +200,28 @@ binds {
   Ctrl+Print { spawn "sh" "-c" "grim -g \"$(slurp)\" - | swappy -f -"; }
   Alt+Print  { screenshot-window; }
 
-  // Audio — swayosd-client performs the change AND shows an on-screen
-  // popup, so it replaces the old direct wpctl calls.
-  XF86AudioRaiseVolume allow-when-locked=true { spawn "swayosd-client" "--output-volume" "raise"; }
-  XF86AudioLowerVolume allow-when-locked=true { spawn "swayosd-client" "--output-volume" "lower"; }
-  XF86AudioMute        allow-when-locked=true { spawn "swayosd-client" "--output-volume" "mute-toggle"; }
-  XF86AudioMicMute                            { spawn "swayosd-client" "--input-volume"  "mute-toggle"; }
+  // Audio / media / brightness — the quickshell bar is the OSD (Osd.qml +
+  // services/Osd.qml): the IPC call performs the change (Pipewire, MPRIS,
+  // brightnessctl) and pops the panel above the bar. allow-when-locked keeps
+  // volume and media keys working under hyprlock (the popup is hidden there).
+  XF86AudioRaiseVolume allow-when-locked=true { spawn "qs" "ipc" "-c" "bottom" "call" "osd" "volume" "raise"; }
+  XF86AudioLowerVolume allow-when-locked=true { spawn "qs" "ipc" "-c" "bottom" "call" "osd" "volume" "lower"; }
+  XF86AudioMute        allow-when-locked=true { spawn "qs" "ipc" "-c" "bottom" "call" "osd" "volume" "mute-toggle"; }
+  XF86AudioMicMute                            { spawn "qs" "ipc" "-c" "bottom" "call" "osd" "mic" "mute-toggle"; }
 
-  // Media playback — playerctl drives the active MPRIS player. Allowed on
-  // the lock screen so you can skip tracks without unlocking.
-  XF86AudioPlay  allow-when-locked=true { spawn "playerctl" "play-pause"; }
-  XF86AudioPause allow-when-locked=true { spawn "playerctl" "play-pause"; }
-  XF86AudioNext  allow-when-locked=true { spawn "playerctl" "next"; }
-  XF86AudioPrev  allow-when-locked=true { spawn "playerctl" "previous"; }
-  XF86AudioStop  allow-when-locked=true { spawn "playerctl" "stop"; }
+  XF86AudioPlay  allow-when-locked=true { spawn "qs" "ipc" "-c" "bottom" "call" "osd" "media" "toggle"; }
+  XF86AudioPause allow-when-locked=true { spawn "qs" "ipc" "-c" "bottom" "call" "osd" "media" "toggle"; }
+  XF86AudioNext  allow-when-locked=true { spawn "qs" "ipc" "-c" "bottom" "call" "osd" "media" "next"; }
+  XF86AudioPrev  allow-when-locked=true { spawn "qs" "ipc" "-c" "bottom" "call" "osd" "media" "prev"; }
+  XF86AudioStop  allow-when-locked=true { spawn "qs" "ipc" "-c" "bottom" "call" "osd" "media" "stop"; }
 
-  // Brightness — same deal, swayosd-client replaces brightnessctl here.
   // The screen backlight on this T2 machine is acpi_video0 (not
-  // intel_backlight); --device and its value must be two separate args.
-  XF86MonBrightnessUp   { spawn "swayosd-client" "--brightness" "raise" "--device" "acpi_video0"; }
-  XF86MonBrightnessDown { spawn "swayosd-client" "--brightness" "lower" "--device" "acpi_video0"; }
-
-  XF86KbdBrightnessUp   { spawn "sh" "-c" "brightnessctl -q -d apple::kbd_backlight set 10%+; b=$(brightnessctl -d apple::kbd_backlight -m | cut -d, -f3); i=medium; [ \"$b\" -eq 0 ] && i=off; [ \"$b\" -eq 512 ] && i=high; swayosd-client --custom-progress \"$(awk -v b=$b 'BEGIN{printf \"%.2f\", b/512}')\" --custom-icon keyboard-brightness-$i-symbolic"; }
-  XF86KbdBrightnessDown { spawn "sh" "-c" "brightnessctl -q -d apple::kbd_backlight set 10%-; b=$(brightnessctl -d apple::kbd_backlight -m | cut -d, -f3); i=medium; [ \"$b\" -eq 0 ] && i=off; [ \"$b\" -eq 512 ] && i=high; swayosd-client --custom-progress \"$(awk -v b=$b 'BEGIN{printf \"%.2f\", b/512}')\" --custom-icon keyboard-brightness-$i-symbolic"; }
+  // intel_backlight); the keyboard is apple::kbd_backlight — both named in
+  // services/Osd.qml.
+  XF86MonBrightnessUp   { spawn "qs" "ipc" "-c" "bottom" "call" "osd" "brightness" "raise"; }
+  XF86MonBrightnessDown { spawn "qs" "ipc" "-c" "bottom" "call" "osd" "brightness" "lower"; }
+  XF86KbdBrightnessUp   { spawn "qs" "ipc" "-c" "bottom" "call" "osd" "kbd" "raise"; }
+  XF86KbdBrightnessDown { spawn "qs" "ipc" "-c" "bottom" "call" "osd" "kbd" "lower"; }
 
   Mod+Q { close-window; }
 

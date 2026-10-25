@@ -1,8 +1,11 @@
 import QtQuick
+import Quickshell
 import "services"
 
 // The idle 2 px rail: cyan segments are this output's workspaces (long =
-// active, dim = empty, pink = urgent).
+// active, dim = empty, pink = urgent). The Repeater runs on a ScriptModel
+// keyed by workspace id so an activation only re-binds the segments (and the
+// width animation plays) instead of recreating them.
 Item {
     id: rail
     required property string outputName
@@ -21,12 +24,14 @@ Item {
         spacing: 6
 
         Repeater {
-            model: Niri.workspacesFor(rail.outputName)
+            model: ScriptModel { values: Niri.workspacesFor(rail.outputName); objectProp: "id" }
             delegate: Item {
                 id: seg
                 required property var modelData
-                readonly property bool active: modelData.is_active
-                readonly property bool occupied: Niri.occupied(modelData.id)
+                // the model only tracks ids; read the live workspace for its flags
+                readonly property var ws: Niri.workspaces.find(w => w.id === seg.modelData.id) || seg.modelData
+                readonly property bool active: ws.is_active
+                readonly property bool occupied: Niri.occupied(ws.id)
                 width: active ? 64 : 28
                 height: Theme.railH
                 Behavior on width { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
@@ -42,7 +47,8 @@ Item {
                 }
                 Rectangle {
                     anchors.fill: parent
-                    color: seg.modelData.is_urgent ? Theme.pink : Theme.cyan
+                    radius: 3
+                    color: seg.ws.is_urgent ? Theme.pink : Theme.cyan
                     opacity: seg.active ? 1 : (seg.occupied ? 0.8 : 0.45)
                 }
             }

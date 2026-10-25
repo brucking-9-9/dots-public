@@ -57,6 +57,12 @@ in
 
   programs.spotify-player = {
     enable = true;
+    # After play/pause/skip spotify-player re-reads the playback state only at
+    # +1 s and +3 s, so MPRIS (bottom bar, mbp13's music kiosk) lagged ~4 s.
+    # The patch re-checks at +0.3/1/2/3.5 s. Built from source (no cache hit).
+    package = pkgs.spotify-player.overrideAttrs (o: {
+      patches = (o.patches or [ ]) ++ [ ./spotify-player-fast-refresh.patch ];
+    });
     # → ~/.config/spotify-player/app.toml
     settings = {
       theme = "cyberpunk"; # ../../themes/spotify-player/cyberpunk.toml
@@ -80,6 +86,10 @@ in
       # Built-in real-time frequency bars in the playback window (64
       # log-scale bands; colours from the theme's `visualization` style)
       enable_audio_visualization = true;
+      # UI redraw tick (default 32 ms). It keeps ticking while the Mod+M panel
+      # is hidden, and a hidden panel once spun spotify_player + its kitty at
+      # ~99 % / ~80 % CPU; 100 ms is ~3x less work, bars a bit choppier.
+      app_refresh_duration_in_ms = 100;
       border_type = "Rounded";
       progress_bar_type = "Line";
       cover_img_width = 6;
@@ -111,6 +121,9 @@ in
     exec = "spotify-viz";
     icon = "spotify";
     terminal = false;
+    # the window spotify-viz opens is kitty --app-id=spotify-viz; the launcher
+    # (services/Apps.qml) focuses by StartupWMClass, so name it or every click spawns another
+    settings.StartupWMClass = "spotify-viz";
     categories = [ "AudioVideo" "Audio" "Player" ];
   };
 

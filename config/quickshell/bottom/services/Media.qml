@@ -16,7 +16,7 @@ Singleton {
         return playing ? playing : (ps.length ? ps[0] : null);
     }
 
-    property var levels: []   // 16 ints 0..7
+    property var levels: []   // 72 ints 0..100 (cava.conf)
     readonly property bool barsActive: player !== null && player.isPlaying
 
     Process {

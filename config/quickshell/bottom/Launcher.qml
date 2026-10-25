@@ -1,4 +1,5 @@
 import QtQuick
+import Quickshell
 import "services"
 
 // Apps island content. One row that unfolds:
@@ -165,8 +166,8 @@ Item {
             Behavior on width { NumberAnimation { duration: Theme.unfoldMs; easing.type: Easing.OutCubic } }
             WheelHandler {
                 onWheel: ev => {
-                    const d = ev.angleDelta.y !== 0 ? ev.angleDelta.y : ev.angleDelta.x;
-                    flick.contentX = Math.max(0, Math.min(Math.max(0, flick.contentWidth - flick.width), flick.contentX - d / 2));
+                    const d = Audio.wheelNotches(ev) * 60;   // px per notch
+                    flick.contentX = Math.max(0, Math.min(Math.max(0, flick.contentWidth - flick.width), flick.contentX - d));
                 }
             }
 
@@ -174,16 +175,17 @@ Item {
                 id: chips
                 spacing: 6
 
-                Repeater {   // pins: mini shows only the running ones
-                    model: Pins.pins
+                Repeater {   // pins: mini shows only the running ones (keyed model: a pin edit keeps the other chips)
+                    model: ScriptModel { values: Pins.pins; objectProp: "appId" }
                     Chip {
                         required property var modelData
                         required property int index
-                        readonly property bool isRunning: Niri.hasWindow(modelData.appId)
-                        label: launcher.miniLabel(modelData.name)
+                        readonly property var pin: Pins.pins[index] || modelData
+                        readonly property bool isRunning: Niri.hasWindow(pin.appId)
+                        label: launcher.miniLabel(pin.name)
                         number: index < 9 ? index + 1 : 0
                         running: isRunning
-                        current: Niri.sameApp(Niri.focusedAppId, modelData.appId)
+                        current: Niri.sameApp(Niri.focusedAppId, pin.appId)
                         mini: !launcher.expanded
                         shown: !launcher.hasText && (launcher.expanded || isRunning)
                         onClicked: { Pins.activate(index); launcher.launched(); }

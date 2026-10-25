@@ -2,11 +2,12 @@ import QtQuick
 import "services"
 
 // Skewed thumbnail strip above the panel. Hover = live preview through awww,
-// click = set (and remember), Esc / click outside = restore.
+// click = set (and remember), Esc / click outside = restore. Subfolders of
+// the wallpaper dir are tabs along the top (Wallpapers.folders).
 Item {
     id: strip
     property bool open: false
-    readonly property real wantedWidth: list.contentWidth + 90
+    readonly property real wantedWidth: Math.max(list.contentWidth, tabs.implicitWidth + hint.implicitWidth + 24) + 90
     signal chosen()
     height: Theme.stripH
     opacity: open ? 1 : 0
@@ -16,17 +17,53 @@ Item {
     HoverHandler { id: hover }
     readonly property bool hovered: hover.hovered
 
+    // the cards lean: skewX(-lean) on the frame, +lean on what it holds, so
+    // only the frame slants. skewPad is the width the counter-skewed picture
+    // must overhang each side to still fill the slanted frame (tan·height).
+    readonly property real lean: 14
+    readonly property int skewPad: Math.ceil(Math.tan(lean * Math.PI / 180) * 62)
+    function shear(deg) { return Qt.matrix4x4(1, Math.tan(deg * Math.PI / 180), 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1); }
+
     HudPanel {
         anchors.fill: parent
         cutTL: false; cutTR: true; cutBL: true; cutBR: false
         cut: 14
     }
 
-    Text {
-        // anchors.right: parent.right
+    // folder tabs — one chip per subfolder (+ "misc" for loose files), with counts
+    Row {
+        id: tabs
         anchors.top: parent.top
-        anchors.margins: 6
-        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.left: parent.left
+        anchors.topMargin: 4
+        anchors.leftMargin: 22
+        spacing: 2
+        Repeater {
+            model: Wallpapers.folders
+            Chip {
+                required property var modelData
+                label: Wallpapers.folderLabel(modelData.name) + " " + modelData.count
+                mini: true
+                selected: modelData.name === Wallpapers.folder
+                onClicked: Wallpapers.selectFolder(modelData.name)
+            }
+        }
+        Rectangle { width: 1; height: 14; color: Theme.sel; anchors.verticalCenter: parent.verticalCenter }
+        // accent follows the wallpaper (Theme.follow) — cyan/pink take the wallpaper's hues
+        Chip {
+            label: "◐ accent"
+            mini: true
+            selected: Theme.follow
+            onClicked: Theme.toggleFollow()
+        }
+    }
+
+    Text {
+        id: hint
+        anchors.top: parent.top
+        anchors.right: parent.right
+        anchors.topMargin: 10
+        anchors.rightMargin: 22
         text: ">hover previews< · <>click sets<>"
         color: Theme.dim2
         font.family: Theme.font
@@ -36,13 +73,13 @@ Item {
     ListView {
         id: list
         anchors.centerIn: parent
-        anchors.verticalCenterOffset: 4
+        anchors.verticalCenterOffset: 12
         orientation: ListView.Horizontal
         spacing: 26
         height: 66
         width: Math.min(contentWidth, strip.width - 60)
         clip: true
-        model: Wallpapers.files
+        model: Wallpapers.visibleFiles
         boundsBehavior: Flickable.StopAtBounds
 
         delegate: Item {
@@ -56,19 +93,18 @@ Item {
             y: hovered ? -4 : 0
             Behavior on y { NumberAnimation { duration: 150 } }
 
-            // skewX(-14°) on the frame, counter-skew on the picture so only the frame leans
-            transform: Matrix4x4 { matrix: Qt.matrix4x4(1, Math.tan(-14 * Math.PI / 180), 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1) }
+            transform: Matrix4x4 { matrix: strip.shear(-strip.lean) }
 
             Item {
                 anchors.fill: parent
                 anchors.margins: 1
                 clip: true
                 Image {
-                    x: -16
-                    width: parent.width + 32
+                    x: -strip.skewPad
+                    width: parent.width + 2 * strip.skewPad
                     height: parent.height
-                    transform: Matrix4x4 { matrix: Qt.matrix4x4(1, Math.tan(14 * Math.PI / 180), 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1) }
-                    source: "file://" + cardItem.modelData
+                    transform: Matrix4x4 { matrix: strip.shear(strip.lean) }
+                    source: "file://" + Wallpapers.thumb(cardItem.modelData)
                     sourceSize: Qt.size(240, 140)
                     fillMode: Image.PreserveAspectCrop
                     asynchronous: true
@@ -100,11 +136,11 @@ Item {
                 anchors.right: parent.right
                 anchors.top: parent.top
                 anchors.margins: 4
-                text: cardItem.loading ? "loading…" : "gif"
+                text: cardItem.loading ? "loading…" : (Wallpapers.video(cardItem.modelData) ? "vid" : "gif")
                 color: cardItem.loading ? Theme.pink : Theme.purple
                 font.family: Theme.font
                 font.pixelSize: 8
-                transform: Matrix4x4 { matrix: Qt.matrix4x4(1, Math.tan(14 * Math.PI / 180), 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1) }
+                transform: Matrix4x4 { matrix: strip.shear(strip.lean) }
             }
             Rectangle {
                 anchors.left: parent.left
@@ -130,7 +166,7 @@ Item {
             }
             TapHandler {
                 onTapped: {
-                    Wallpapers.set(cardItem.modelData);
+                    Wallpapers.pick(cardItem.modelData);
                     strip.chosen();
                 }
             }

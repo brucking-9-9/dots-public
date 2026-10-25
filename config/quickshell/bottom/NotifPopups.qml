@@ -10,6 +10,9 @@ import "services"
 // Left click = dismiss, right click = go to the sender's window, chips =
 // actions. Overlay layer (the only one niri draws above a fullscreen
 // window), so cards still show over a game; mask keeps the rest click-through.
+// The Repeater runs on a ScriptModel keyed by `key`, so a new card never
+// rebuilds the others; the drain bar follows the service's deadline (Notif
+// owns expiry and the hover hold), so a rebuilt entry resumes where it was.
 PanelWindow {
     id: win
     required property var modelData
@@ -38,12 +41,14 @@ PanelWindow {
         spacing: 8
 
         Repeater {
-            model: Notif.popups
+            model: ScriptModel { values: Notif.popups; objectProp: "key" }
             Item {
                 id: card
                 required property var modelData
-                readonly property var e: modelData
-                readonly property bool leaving: Notif.closing.indexOf(e.key) >= 0
+                readonly property string key: modelData.key
+                // the service rebuilds an entry when its sender replaces it; the model only tracks keys
+                readonly property var e: Notif.popups.find(x => x.key === card.key) || card.modelData
+                readonly property bool leaving: Notif.closing.indexOf(card.key) >= 0
                 readonly property color edge: e.urgency === 2 ? Theme.yellow : (e.urgency === 0 ? Theme.sel : Theme.cyan)
                 width: col.width
                 height: inner.implicitHeight + 20
@@ -56,18 +61,24 @@ PanelWindow {
                 opacity: 1 - slide
                 Behavior on slide { NumberAnimation { duration: 260; easing.type: Easing.OutCubic } }
                 Behavior on pulse { NumberAnimation { duration: 900; easing.type: Easing.OutQuad } }
-                Component.onCompleted: { slide = 0; pulse = 0; }
-                onLeavingChanged: if (leaving) slide = 1
+                Component.onCompleted: { slide = 0; pulse = 0; syncDrain(); }
+                onLeavingChanged: if (leaving) { slide = 1; drain.stop(); }
 
-                NumberAnimation {
-                    id: drain
-                    target: card; property: "progress"
-                    from: 1; to: 0
-                    duration: Math.max(1, e.timeout)
-                    running: e.timeout > 0
-                    onFinished: if (!card.leaving && card.progress === 0) Notif.expire(card.e)
+                // drain from the remaining fraction to 0 over the time left; Notif's
+                // sweep does the actual expiry
+                NumberAnimation { id: drain; target: card; property: "progress"; to: 0 }
+                function syncDrain() {
+                    drain.stop();
+                    if (!(e.timeout > 0)) { progress = 1; return; }
+                    const rem = Math.max(0, e.deadline - Date.now());
+                    progress = rem / e.timeout;
+                    if (hover.hovered || leaving) return;
+                    drain.duration = Math.max(1, rem);
+                    drain.start();
                 }
-                HoverHandler { id: hover; onHoveredChanged: if (drain.running) drain.paused = hovered }
+                onEChanged: syncDrain()
+                // hovering holds the deadline; releasing pushes it on (the entry is rebuilt, onEChanged resumes)
+                HoverHandler { id: hover; onHoveredChanged: { Notif.hold(card.key, hovered); card.syncDrain(); } }
                 TapHandler { acceptedButtons: Qt.LeftButton; onTapped: Notif.dismiss(e) }
                 TapHandler { acceptedButtons: Qt.RightButton; onTapped: Notif.goTo(e) }
 
@@ -76,7 +87,7 @@ PanelWindow {
                     cutTL: true; cutTR: false; cutBL: false; cutBR: true
                     cut: 10
                     soft: true
-                    fill: Qt.rgba(18 / 255, 11 / 255, 16 / 255, 0.72)   // see-through: don't hide what's behind
+                    fill: Qt.alpha(Theme.bg, 0.72)   // see-through: don't hide what's behind
                     edge: card.edge
                     edgeWidth: e.urgency === 2 ? 1.6 : 1
                     // only critical glows (and flares on arrival); the rest keep a faint edge
@@ -109,6 +120,7 @@ PanelWindow {
                         Text {
                             width: parent.width
                             text: (e.urgency === 2 ? "⚠ " : "") + e.app
+                            textFormat: Text.PlainText
                             visible: e.app.length > 0
                             color: e.urgency === 2 ? Theme.yellow : (e.urgency === 0 ? Theme.dim : Theme.purple)
                             font.family: Theme.font
@@ -124,6 +136,7 @@ PanelWindow {
                                 id: neon
                                 anchors.left: parent.left
                                 text: e.summary
+                                textFormat: Text.PlainText
                                 color: e.urgency === 2 ? Theme.yellow : (e.urgency === 0 ? Theme.dim2 : Theme.cyan)
                                 font.family: Theme.font
                                 font.pixelSize: Theme.fontSize

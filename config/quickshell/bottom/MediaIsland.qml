@@ -38,7 +38,7 @@ Item {
                             required property int index
                             anchors.bottom: parent.bottom
                             width: 3
-                            height: 2 + 12 * (Media.level(index) / 7)
+                            height: 2 + 12 * (Media.level(Math.floor(index * Media.levels.length / 24)) / 100)
                             opacity: Media.barsActive ? 1 : 0.35
                             Behavior on height { NumberAnimation { duration: 50 } }
                             Rectangle { anchors.fill: parent; anchors.margins: -2; color: Theme.cyan; opacity: 0.3; radius: 2 }
@@ -98,7 +98,7 @@ Item {
             spacing: 5
             NeonText {
                 anchors.verticalCenter: parent.verticalCenter
-                text: Audio.muted ? "󰖁" : (Audio.volume < 0.34 ? "󰕿" : Audio.volume < 0.67 ? "󰖀" : "󰕾")
+                text: Audio.muted ? "\u{f0581}" : (Audio.volume < 0.34 ? "\u{f057f}" : Audio.volume < 0.67 ? "\u{f0580}" : "\u{f057e}")   // nf-md volume glyphs by escape
                 color: Audio.muted ? Theme.pink : (vh.hovered ? Theme.fg : Theme.cyan)
                 font.family: Theme.font
                 font.pixelSize: Theme.fontSize + 2
@@ -121,7 +121,7 @@ Item {
             spacing: 5
             NeonText {
                 anchors.verticalCenter: parent.verticalCenter
-                text: Audio.micMuted ? "󰍭" : "󰍬"
+                text: Audio.micMuted ? "\u{f036d}" : "\u{f036c}"   // nf-md microphone glyphs by escape
                 color: Audio.micMuted ? Theme.pink : (mh.hovered ? Theme.fg : Theme.green)
                 font.family: Theme.font
                 font.pixelSize: Theme.fontSize + 2

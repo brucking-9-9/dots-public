@@ -9,6 +9,9 @@ Item {
     implicitHeight: Theme.panelH
     width: implicitWidth
     Behavior on width { NumberAnimation { duration: Theme.unfoldMs; easing.type: Easing.OutCubic } }
+    // HH:mm:ss width, for the sys island's unfolded-width prediction
+    readonly property real fullWidth: Math.ceil(full.advanceWidth)
+    TextMetrics { id: full; font: txt.font; text: "00:00:00" }
 
     SystemClock { id: sys; precision: SystemClock.Seconds }
 

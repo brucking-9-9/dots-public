@@ -11,9 +11,17 @@ import Quickshell.Services.Notifications
 // dnd hides popups (still counted and listed), silent drops the chime; both
 // persist with the history in ~/.local/state/quickshell-bottom/notif.json.
 // Entries are plain snapshots {key, id, app, summary, body, urgency 0-2, icon,
-// image, time, actions [{id, text}], timeout ms (0 = sticky), win, desktop, n}
-// where win is the sender's niri window id (x-niri-window hint, 0 = none), n is
-// the live Notification object (null for history / restored popups).
+// image, time, actions [{id, text}], timeout ms (0 = sticky), deadline (ms
+// epoch, 0 = sticky), win, desktop, n} where win is the sender's niri window
+// id (x-niri-window hint, 0 = none), n is the live Notification object (null
+// for history / restored popups).
+// A sender that replaces its notification (replaces_id) only mutates the
+// Notification object — the server emits no new signal — so add() watches the
+// object's property signals and rebuilds the snapshot under the same key
+// (the popup card survives, its timeout restarts).
+// Expiry is this service's job, not the popup delegate's: the sweep timer
+// expires every entry past its deadline, so ones beyond maxPopups or received
+// under dnd still time out. Hovering a card holds its deadline (hold()).
 Singleton {
     id: root
     property var live: []
@@ -60,10 +68,12 @@ Singleton {
         const urg = n.urgency === NotificationUrgency.Critical ? 2 : (n.urgency === NotificationUrgency.Low ? 0 : 1);
         const t = n.expireTimeout;   // -1 = default, 0 = never (critical always sticks)
         const timeout = (urg === 2 || t === 0) ? 0 : (t > 0 ? t : (urg === 0 ? 3500 : 6000));
-        return { key: n.id + "@" + Date.now(), id: n.id, app: String(n.appName || ""),
+        const now = Date.now();
+        return { key: n.id + "@" + now, id: n.id, app: String(n.appName || ""),
                  summary: String(n.summary || ""), body: String(n.body || ""), urgency: urg,
-                 icon: iconFor(n), image: String(n.image || ""), time: Date.now(),
-                 actions: acts, timeout: timeout, win: Number(n.hints["x-niri-window"] || 0),
+                 icon: iconFor(n), image: String(n.image || ""), time: now,
+                 actions: acts, timeout: timeout, deadline: timeout > 0 ? now + timeout : 0,
+                 win: Number(n.hints["x-niri-window"] || 0),
                  desktop: String(n.desktopEntry || ""), n: n };
     }
 
@@ -71,19 +81,74 @@ Singleton {
         const e = entry(n);
         live = [e].concat(live.filter(x => x.id !== e.id));
         n.closed.connect(reason => root.onClosed(e.id));
+        // a replace changes several properties in a row: coalesce into one refresh
+        const dirty = () => root.markDirty(e.id);
+        for (const s of [n.summaryChanged, n.bodyChanged, n.actionsChanged, n.imageChanged, n.appIconChanged,
+                         n.appNameChanged, n.hintsChanged, n.urgencyChanged, n.expireTimeoutChanged]) if (s) s.connect(dirty);
         if (quiet || dnd) return;
         popups = [e].concat(popups.filter(x => x.id !== e.id)).slice(0, maxPopups);
         if (!silent && e.urgency > 0) chime();
+    }
+
+    // replaced notification: same key (the card stays put), fresh fields and
+    // timeout; back into the popups if it had left them. No chime: replaces
+    // are mostly progress updates.
+    property var dirtyIds: ({})
+    function markDirty(id) { dirtyIds[id] = true; refreshTimer.start(); }
+    Timer {
+        id: refreshTimer
+        interval: 0
+        onTriggered: {
+            const ids = Object.keys(root.dirtyIds);
+            root.dirtyIds = {};
+            for (const id of ids) root.refresh(Number(id));
+        }
+    }
+    function refresh(id) {
+        const old = live.find(x => x.id === id);
+        if (!old || !old.n) return;
+        const e = Object.assign(entry(old.n), { key: old.key });
+        live = live.map(x => x.id === id ? e : x);
+        if (popups.some(x => x.key === e.key)) popups = popups.map(x => x.key === e.key ? e : x);
+        else if (!dnd) popups = [e].concat(popups).slice(0, maxPopups);
+    }
+
+    // hovering a card freezes its timeout: hold(key, true) notes when,
+    // hold(key, false) pushes the deadline on by that long
+    property var holds: ({})
+    function held(key) { return key in holds; }
+    function hold(key, on) {
+        if (on) { if (!(key in holds)) holds[key] = Date.now(); return; }
+        const start = holds[key];
+        if (start === undefined) return;
+        delete holds[key];
+        const dt = Date.now() - start;
+        const bump = x => x.key === key && x.deadline > 0 ? Object.assign({}, x, { deadline: x.deadline + dt }) : x;
+        live = live.map(bump);
+        popups = popups.map(bump);
+    }
+    // the sweep: expire what has run out (the server then reports it closed);
+    // restored popups have no Notification object and just slide out
+    Timer {
+        interval: 250
+        repeat: true
+        running: root.live.some(x => x.deadline > 0) || root.popups.some(x => x.deadline > 0)
+        onTriggered: {
+            const now = Date.now();
+            for (const e of root.live.slice()) if (e.deadline > 0 && e.deadline <= now && !root.held(e.key)) root.expire(e);
+            for (const p of root.popups.slice()) if (!p.n && p.deadline > 0 && p.deadline <= now && !root.held(p.key)) root.unpop(p.key);
+        }
     }
 
     function onClosed(id) {
         const e = live.find(x => x.id === id);
         live = live.filter(x => x.id !== id);
         for (const p of popups) if (p.id === id && p.n) unpop(p.key);
+        if (e) delete holds[e.key];
         if (!e || clearing || e.n["transient"]) return;
         // keep theme icons (image://icon/…) for the list; image-data blobs die with the process
         const img = e.image.startsWith("image://icon/") ? e.image : "";
-        const h = Object.assign({}, e, { n: null, image: img, actions: [], timeout: 0 });
+        const h = Object.assign({}, e, { n: null, image: img, actions: [], timeout: 0, deadline: 0 });
         history = [h].concat(history).slice(0, maxHistory);
         save();
     }
@@ -100,6 +165,7 @@ Singleton {
         onTriggered: {
             const c = root.closing;
             root.popups = root.popups.filter(x => c.indexOf(x.key) < 0);
+            for (const k of c) delete root.holds[k];
             root.closing = [];
         }
     }
@@ -142,7 +208,8 @@ Singleton {
 
     // re-show a history row as a (detached) popup
     function restore(h) {
-        const p = Object.assign({}, h, { key: h.key + "r" + Date.now(), timeout: 6000, n: null });
+        const now = Date.now();
+        const p = Object.assign({}, h, { key: h.key + "r" + now, timeout: 6000, deadline: now + 6000, n: null });
         popups = [p].concat(popups).slice(0, maxPopups);
     }
 
